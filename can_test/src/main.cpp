@@ -24,29 +24,57 @@ void serial_write(Serial &port, string data) {
 	tx_led = false;
 }
 
-void can_send_msg(string data) {
+/*
+ * Function to send messages over CAN. It will only send strings of length < 7.
+ *
+ * @param data The data to send over CAN.
+ * @return Whether or not the message was sent successfully.
+ */
+bool can_send_msg(string data) {
+	if (data.length() > 7) {
+		return false;
+	} else {
+		return true;
+	}
+
 	CANMessage message(1, data.c_str(), data.length() + 1);
+	bool success = false;
 
 	can_led = true;
+
 	if (can_1.write(message)) {
 		usb.printf("Sent CAN message: %s\n\r", data.c_str());
+		success = true;
 	} else {
 		usb.printf("Failed to send CAN message: %s\n\r", data.c_str());
+		success = false;
 	}
+
 	can_led = false;
 }
 
+/*
+ * Interrupt service routine for USB rx.
+ */
 void usb_ISR() {
 	usb_rx_flag = true;
 	usb.attach(NULL);
 }
 
+/*
+ * Interrupt service routine for CAN rx
+ */
 void can_ISR() {
 	can_rx_flag = true;
 	can_led = true;
 	can_2.attach(NULL);
 }
 
+/*
+ * Flushes the serial buffer for a given serial port
+ *
+ * @param &port Reference to a serial device
+ */
 void flush_serial_buffer(Serial &port) {
 	char c;
 	while (port.readable()) {
@@ -54,6 +82,10 @@ void flush_serial_buffer(Serial &port) {
 	}
 }
 
+/*
+ * Interrupt handler for USB rx. Takes input from the USB port and sends over
+ * the CAN bus
+ */
 void on_usb_rx_interrupt() {
 	string read_in = "";
 	list<string> messages;
@@ -93,6 +125,10 @@ void on_usb_rx_interrupt() {
 
 }
 
+/*
+ * Interrupt handler for CAN rx. Echoes the message from the CAN bus to the
+ * serial terminal.
+ */
 void on_can_rx_interrupt() {
 	CANMessage message;
 
